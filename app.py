@@ -38,9 +38,6 @@ def health_check():
 def ingestion_agent(request):
     try:
         logger.info(f"Received request with content-type: {request.content_type}")
-        logger.info(f"Request method: {request.method}")
-        logger.info(f"Request headers: {dict(request.headers)}")
-
         request_json = request.get_json(silent=True)
         if not request_json:
             logger.error("Invalid or missing JSON body")
@@ -48,43 +45,28 @@ def ingestion_agent(request):
 
         logger.info(f"Request JSON: {request_json}")
 
-        # Handle Pub/Sub message format
-        bucket_name = None
-        file_name = None
-        
-        # Check if this is a Pub/Sub message with nested structure
-        if 'message' in request_json:
-            message = request_json['message']
-            
-            # Extract from Pub/Sub message data (base64 encoded)
-            if 'data' in message:
-                try:
-                    # Decode the base64 data
-                    decoded_data = base64.b64decode(message['data']).decode('utf-8')
-                    logger.info(f"Decoded Pub/Sub data: {decoded_data}")
-                    
-                    # Parse the JSON data
-                    storage_object = json.loads(decoded_data)
-                    bucket_name = storage_object.get('bucket')
-                    file_name = storage_object.get('name')
-                    
-                    logger.info(f"Extracted from Pub/Sub data - bucket: {bucket_name}, name: {file_name}")
-                    
-                except Exception as e:
-                    logger.error(f"Failed to decode Pub/Sub message data: {e}")
-                    
-            # Fallback: try to extract from attributes
-            if not bucket_name or not file_name:
-                attributes = message.get('attributes', {})
-                bucket_name = attributes.get('bucketId')
-                file_name = attributes.get('objectId')
-                logger.info(f"Extracted from attributes - bucket: {bucket_name}, name: {file_name}")
-        
+        # ✅ Get and decode Pub/Sub message data
+        message = request_json.get("message", {})
+        data_base64 = message.get("data")
+        if not data_base64:
+            logger.error("Missing 'data' field in Pub/Sub message 2")
+            return {"error": "Missing data"}, 400
+
+        decoded_data = base64.b64decode(data_base64).decode("utf-8")
+        logger.info(f"Decoded Pub/Sub data: {decoded_data}")
+        data_json = json.loads(decoded_data)
+
+        bucket_name = data_json.get("bucket")
+        file_name = data_json.get("name")
+
+        if not bucket_name or not file_name:
+            logger.error("Missing bucket or file name in decoded data")
+            return {"error": "Missing bucket or file name 2 "}, 400
         # Direct format (for backward compatibility)
         else:
             bucket_name = request_json.get("bucket")
             file_name = request_json.get("name")
-            logger.info(f"Direct format - bucket: {bucket_name}, name: {file_name}")
+            logger.info(f"Direct format 2 - bucket: {bucket_name}, name: {file_name}")
 
         if not bucket_name or not file_name:
             logger.error("Missing bucket or file name in request")
