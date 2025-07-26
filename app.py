@@ -18,7 +18,7 @@ storage_client = storage.Client()
 vision_client = vision.ImageAnnotatorClient()
 publisher_client = pubsub_v1.PublisherClient()
 
-PROJECT_ID = os.environ.get('GCP_PROJECT', 'planar-cycle-467108-b4')
+PROJECT_ID = os.environ.get('GCP_PROJECT', 'graphite-record-467002-g2')
 BUCKET_NAME = f"{PROJECT_ID}.appspot.com"
 EXTRACTION_TOPIC = f"projects/{PROJECT_ID}/topics/receipts-for-extraction"
 MAX_FILE_SIZE_MB = int(os.environ.get("MAX_FILE_SIZE_MB", "5"))
