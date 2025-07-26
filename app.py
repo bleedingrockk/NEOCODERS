@@ -91,10 +91,19 @@ def ingestion_agent(request):
         metadata = blob.metadata or {}
         user_id = metadata.get("user_id")
         logger.info(f"Blob metadata: {metadata}")
-
         if not user_id:
-            user_id = file_name.split("-")[0]
-            logger.info(f"Extracted user_id from filename: {user_id}")
+            # Fix: Extract the actual UUID from the filename, not the path
+            # File format: receipts/2025/07/27/67a0722b-6bda-4791-8562-7792c5780667_mobile_recharge.png
+            filename_parts = file_name.split("/")
+            if len(filename_parts) > 0:
+                # Get the last part (filename) and extract the UUID part before the first underscore
+                filename = filename_parts[-1]  # "67a0722b-6bda-4791-8562-7792c5780667_mobile_recharge.png"
+                if "_" in filename:
+                    user_id = filename.split("_")[0]  # "67a0722b-6bda-4791-8562-7792c5780667"
+                else:
+                    # Fallback: use the filename without extension
+                    user_id = filename.split(".")[0]
+            logger.info(f"Extracted user_id from filename 3: {user_id}")
 
         # Validate file size before downloading
         if blob.size and blob.size > (MAX_FILE_SIZE_MB * 1024 * 1024):
@@ -196,17 +205,41 @@ def ingestion_agent(request):
         return {"error": "Internal Server Error"}, 500
 
 def _verify_user_exists(user_id: str) -> bool:
+    """
+    Verify if a user exists in Firebase Auth.
+    Returns True if user exists and is enabled, False otherwise.
+    """
     try:
         logger.info(f"Verifying user exists: {user_id}")
         user_record = auth.get_user(user_id)
         is_enabled = not user_record.disabled
         logger.info(f"User verification result - exists: True, enabled: {is_enabled}")
         return is_enabled
-    except firebase_exceptions.UserNotFoundError:
+        
+    except firebase_exceptions.NotFoundError:
+        # This is the correct exception for user not found
         logger.warning(f"User not found: {user_id}")
         return False
+        
+    except firebase_exceptions.PermissionDeniedError as e:
+        # Handle API not enabled or permission issues
+        logger.error(f"Firebase Auth permission denied - API may not be enabled: {e}")
+        # You can choose to return True here to bypass auth check during development
+        # or False to enforce strict authentication
+        return False
+        
+    except firebase_exceptions.UnavailableError as e:
+        # Handle service unavailable
+        logger.error(f"Firebase Auth service unavailable: {e}")
+        return False
+        
+    except firebase_exceptions.InvalidArgumentError as e:
+        # Handle invalid user ID format
+        logger.error(f"Invalid user ID format: {user_id} - {e}")
+        return False
+        
     except Exception as e:
-        logger.error(f"User verification failed: {e}")
+        logger.error(f"Unexpected error during user verification: {e}")
         return False
 
 def _validate_file_size(image_bytes: bytes) -> bool:
