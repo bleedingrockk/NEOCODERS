@@ -35,8 +35,64 @@ logger = logging.getLogger(__name__)
 
 
 @app.route("/", methods=["POST"])
-def handle_request():
-    return ingestion_agent(request)
+def handle_pubsub_push():
+    try:
+        envelope = request.get_json(force=True)
+        logging.info(f"Received Pub/Sub message: {envelope}")
+
+        if not envelope or 'message' not in envelope:
+            return "Bad Request: Missing 'message'", 400
+
+        message = envelope['message']
+        if 'data' not in message:
+            return "Bad Request: Missing 'data'", 400
+
+        payload = json.loads(base64.b64decode(message['data']).decode('utf-8'))
+        logging.info(f"Decoded Pub/Sub payload: {payload}")
+
+        bucket_name = payload['bucket']
+        file_name = payload['name']
+        gcs_uri = f"gs://{bucket_name}/{file_name}"
+
+        # You can extract user_id from file name if encoded, or set as unknown
+        user_id = "unknown"
+
+        blob = storage_client.bucket(bucket_name).blob(file_name)
+        image_bytes = blob.download_as_bytes()
+
+        # Optionally check file size and type
+        if not _validate_file_size(image_bytes):
+            return f"Error: File too large", 413
+
+        content_type = _detect_content_type(image_bytes)
+        if content_type not in ALLOWED_CONTENT_TYPES:
+            return f"Error: Content type {content_type} not allowed", 415
+
+        if content_type.startswith("image/"):
+            if not _perform_safety_check(image_bytes):
+                return "Error: Unsafe content", 422
+            if not _validate_content_structure(image_bytes):
+                return "Error: Low text content", 422
+
+        # Reupload to a different location (processed area)
+        ext = content_type.split("/")[-1]
+        new_name = f"processing-receipts/{user_id}-{uuid.uuid4()}.{ext}"
+        new_blob = storage_client.bucket(BUCKET_NAME).blob(new_name)
+        new_blob.upload_from_string(image_bytes, content_type=content_type)
+
+        new_uri = f"gs://{BUCKET_NAME}/{new_name}"
+        logger.info(f"Reuploaded to {new_uri}")
+
+        # Publish for extraction
+        message_payload = json.dumps({'file_path': new_uri, 'user_id': user_id}).encode('utf-8')
+        publisher_client.publish(EXTRACTION_TOPIC, message_payload)
+
+        return "OK", 200
+
+    except Exception as e:
+        logger.exception(f"Error handling GCS Pub/Sub push: {e}")
+        return "Internal Server Error", 500
+
 
 
 def ingestion_agent(request):
