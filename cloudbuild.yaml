@@ -1,3 +1,6 @@
+options:
+  logging: CLOUD_LOGGING_ONLY
+
 steps:
   - name: 'gcr.io/cloud-builders/docker'
     args: ['build', '-t', 'asia-south1-docker.pkg.dev/planar-cycle-467108-b4/cloudrun-repo/ingestion-service', '.']
@@ -8,10 +11,13 @@ steps:
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
     entrypoint: gcloud
     args:
-      - run
-      - deploy
-      - ingestion-service
-      - --image=us-asia-south1-docker.pkg.dev/planar-cycle-467108-b4/cloudrun-repo/ingestion-service
-      - --region=asia-south1
-      - --platform=managed
-      - --allow-unauthenticated
+      - 'run'
+      - 'deploy'
+      - 'ingestion-service'
+      - '--image=asia-south1-docker.pkg.dev/planar-cycle-467108-b4/cloudrun-repo/ingestion-service'
+      - '--region=asia-south1'
+      - '--platform=managed'
+      - '--allow-unauthenticated'
+
+images:
+  - 'asia-south1-docker.pkg.dev/planar-cycle-467108-b4/cloudrun-repo/ingestion-service'
