@@ -49,11 +49,11 @@ def ingestion_agent(request):
         message = request_json.get("message", {})
         data_base64 = message.get("data")
         if not data_base64:
-            logger.error("Missing 'data' field in Pub/Sub message 2")
+            logger.error("Missing 'data' field in Pub/Sub message 3")
             return {"error": "Missing data"}, 400
 
         decoded_data = base64.b64decode(data_base64).decode("utf-8")
-        logger.info(f"Decoded Pub/Sub data 2: {decoded_data}")
+        logger.info(f"Decoded Pub/Sub data 3: {decoded_data}")
         data_json = json.loads(decoded_data)
 
         bucket_name = data_json.get("bucket")
@@ -62,7 +62,7 @@ def ingestion_agent(request):
         if not bucket_name or not file_name:
             logger.error(f"Missing bucket or file name in decoded data. Data JSON: {data_json}")
             return {"error": "Missing bucket or file name"}, 400
-        logger.info(f"Processing file 2: gs://{bucket_name}/{file_name}")
+        logger.info(f"Processing file 3: gs://{bucket_name}/{file_name}")
         try:
             bucket = storage_client.bucket(bucket_name)
             blob = bucket.blob(file_name)
