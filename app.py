@@ -36,42 +36,37 @@ def health_check():
 
 def ingestion_agent(request):
     try:
-        # Log request details for debugging
         logger.info(f"Received request with content-type: {request.content_type}")
         logger.info(f"Request method: {request.method}")
         logger.info(f"Request headers: {dict(request.headers)}")
-        
-        # Handle different content types
-        if request.content_type == 'application/json':
-            request_json = request.get_json(silent=True)
-        else:
-            # Try to get JSON even if content-type is not set correctly
-            try:
-                request_json = request.get_json(force=True)
-            except Exception as e:
-                logger.error(f"Failed to parse JSON: {e}")
-                request_json = None
-        
+
+        request_json = request.get_json(silent=True)
         if not request_json:
             logger.error("Invalid or missing JSON body")
-            logger.error(f"Raw request data: {request.get_data()[:200]}")  # Log first 200 chars
             return {"error": "Invalid or missing JSON body"}, 400
 
-        file_base64 = request_json.get('file_data_base64')
-        user_id = request_json.get('user_id')
-        
-        logger.info(f"Processing request for user_id: {user_id}")
-        logger.info(f"File data length: {len(file_base64) if file_base64 else 0}")
+        bucket_name = request_json.get("bucket")
+        file_name = request_json.get("name")
 
-        if not file_base64 or not user_id:
-            logger.error(f"Missing required fields - user_id: {bool(user_id)}, file_data_base64: {bool(file_base64)}")
+        if not bucket_name or not file_name:
+            logger.error("Missing bucket or file name in Pub/Sub message")
+            return {"error": "Missing bucket or file name"}, 400
+
+        blob = storage_client.bucket(bucket_name).blob(file_name)
+        blob.reload()
+        metadata = blob.metadata or {}
+        user_id = metadata.get("user_id")
+
+        if not user_id:
+            user_id = file_name.split("-")[0]
+
+        image_content = blob.download_as_bytes()
+        if image_content:
+          logger.info("image_content extracted")
+        file_data_base64 = base64.b64encode(image_content).decode("utf-8")
+        if not file_data_base64 or not user_id:
+            logger.error(f"Missing required fields - user_id: {bool(user_id)}, file_data_base64: {bool(file_data_base64)}")
             return {"error": "Missing user_id or file_data_base64"}, 400
-
-        try:
-            image_content = base64.b64decode(file_base64)
-        except Exception as e:
-            logger.error(f"Base64 decode error: {e}")
-            return {"error": "Invalid base64 data"}, 400
 
         if not _verify_user_exists(user_id):
             logger.error(f"User verification failed for: {user_id}")
@@ -83,7 +78,7 @@ def ingestion_agent(request):
 
         content_type = _detect_content_type(image_content)
         logger.info(f"Detected content type: {content_type}")
-        
+
         if content_type not in ALLOWED_CONTENT_TYPES:
             logger.error(f"Content type not allowed: {content_type}")
             return {"error": f"Content type {content_type} not allowed"}, 415
@@ -92,17 +87,15 @@ def ingestion_agent(request):
             if not _perform_safety_check(image_content):
                 logger.error("Safety check failed")
                 return {"error": "Unsafe content detected in image"}, 422
-                
             if not _validate_content_structure(image_content):
                 logger.error("Content structure validation failed")
                 return {"error": "Insufficient textual content detected"}, 422
 
         ext = content_type.split("/")[-1]
         destination_blob_name = f"processing-receipts/{user_id}-{uuid.uuid4()}.{ext}"
-        
-        blob = storage_client.bucket(BUCKET_NAME).blob(destination_blob_name)
-        blob.upload_from_string(image_content, content_type=content_type)
-        
+        new_blob = storage_client.bucket(BUCKET_NAME).blob(destination_blob_name)
+        new_blob.upload_from_string(image_content, content_type=content_type)
+
         gcs_uri = f"gs://{BUCKET_NAME}/{destination_blob_name}"
         logger.info(f"File uploaded to: {gcs_uri}")
 
@@ -110,10 +103,10 @@ def ingestion_agent(request):
             'file_path': gcs_uri,
             'user_id': user_id
         }).encode('utf-8')
-        
+
         future = publisher_client.publish(EXTRACTION_TOPIC, message_payload)
         future.result()
-        
+
         logger.info(f"Published message for user {user_id} to {EXTRACTION_TOPIC}")
         return {"message": "Receipt accepted and processing started"}, 200
 
@@ -145,7 +138,6 @@ def _detect_content_type(image_bytes: bytes) -> str:
         return 'image/png'
     elif fmt == 'webp':
         return 'image/webp'
-    # Basic PDF signature check
     if image_bytes.startswith(b'%PDF'):
         return 'application/pdf'
     return 'application/octet-stream'
@@ -165,7 +157,7 @@ def _perform_safety_check(image_bytes: bytes) -> bool:
         return True
     except Exception as e:
         logger.error(f"Safety check error: {e}")
-        return True  # Fail-safe
+        return True
 
 def _validate_content_structure(image_bytes: bytes) -> bool:
     try:
@@ -173,7 +165,7 @@ def _validate_content_structure(image_bytes: bytes) -> bool:
         response = vision_client.text_detection(image=image)
         if response.error.message:
             logger.warning(f"Text detection error: {response.error.message}")
-            return True  # Don't block
+            return True
         annotations = response.text_annotations
         if not annotations or len(annotations[0].description.strip()) < 10:
             logger.warning("Low text content in image")
@@ -181,7 +173,7 @@ def _validate_content_structure(image_bytes: bytes) -> bool:
         return True
     except Exception as e:
         logger.error(f"Text detection failed: {e}")
-        return True  # Don't block
+        return True
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8080))
