@@ -3,10 +3,10 @@ options:
 
 steps:
   - name: 'gcr.io/cloud-builders/docker'
-    args: ['build', '-t', 'asia-south1-docker.pkg.dev/planar-cycle-467108-b4/cloudrun-repo/ingestion-service', '.']
+    args: ['build', '-t', 'us-central1-docker.pkg.dev/$PROJECT_ID/cloudrun-repo/ingestion-service', '.']
 
   - name: 'gcr.io/cloud-builders/docker'
-    args: ['push', 'asia-south1-docker.pkg.dev/planar-cycle-467108-b4/cloudrun-repo/ingestion-service']
+    args: ['push', 'us-central1-docker.pkg.dev/$PROJECT_ID/cloudrun-repo/ingestion-service']
 
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
     entrypoint: gcloud
@@ -14,10 +14,10 @@ steps:
       - 'run'
       - 'deploy'
       - 'ingestion-service'
-      - '--image=asia-south1-docker.pkg.dev/planar-cycle-467108-b4/cloudrun-repo/ingestion-service'
-      - '--region=asia-south1'
+      - '--image=us-central1-docker.pkg.dev/$PROJECT_ID/cloudrun-repo/ingestion-service'
+      - '--region=us-central1'
       - '--platform=managed'
       - '--allow-unauthenticated'
 
 images:
-  - 'asia-south1-docker.pkg.dev/planar-cycle-467108-b4/cloudrun-repo/ingestion-service'
+  - 'us-central1-docker.pkg.dev/$PROJECT_ID/cloudrun-repo/ingestion-service'
