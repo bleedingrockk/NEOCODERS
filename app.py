@@ -53,6 +53,7 @@ def ingestion_agent(request):
             return {"error": "Missing data"}, 400
 
         decoded_data = base64.b64decode(data_base64).decode("utf-8")
+        print("Decoded data:",decoded_data)
         logger.info(f"Decoded Pub/Sub data: {decoded_data}")
         data_json = json.loads(decoded_data)
 
