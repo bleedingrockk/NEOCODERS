@@ -53,33 +53,19 @@ def ingestion_agent(request):
             return {"error": "Missing data"}, 400
 
         decoded_data = base64.b64decode(data_base64).decode("utf-8")
-        print("Decoded data:",decoded_data)
-        logger.info(f"Decoded Pub/Sub data: {decoded_data}")
+        logger.info(f"Decoded Pub/Sub data 2: {decoded_data}")
         data_json = json.loads(decoded_data)
 
         bucket_name = data_json.get("bucket")
         file_name = data_json.get("name")
 
         if not bucket_name or not file_name:
-            logger.error("Missing bucket or file name in decoded data")
-            return {"error": "Missing bucket or file name 2 "}, 400
-        # Direct format (for backward compatibility)
-        else:
-            bucket_name = request_json.get("bucket")
-            file_name = request_json.get("name")
-            logger.info(f"Direct format 2 - bucket: {bucket_name}, name: {file_name}")
-
-        if not bucket_name or not file_name:
-            logger.error("Missing bucket or file name in request")
+            logger.error(f"Missing bucket or file name in decoded data. Data JSON: {data_json}")
             return {"error": "Missing bucket or file name"}, 400
-
-        logger.info(f"Processing file: gs://{bucket_name}/{file_name}")
-
-        # Check if blob exists and is accessible
+        logger.info(f"Processing file 2: gs://{bucket_name}/{file_name}")
         try:
             bucket = storage_client.bucket(bucket_name)
             blob = bucket.blob(file_name)
-            
             # Check if blob exists
             if not blob.exists():
                 logger.error(f"Blob does not exist: gs://{bucket_name}/{file_name}")
