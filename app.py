@@ -10,6 +10,15 @@ from firebase_admin import auth, exceptions as firebase_exceptions
 from flask import Flask, request
 
 app = Flask(__name__)
+import firebase_admin
+from firebase_admin import credentials
+
+# Path where secret will be mounted in Cloud Run
+firebase_key_path = "/secrets/firebase-key.json"
+# Initialize Firebase Admin SDK
+if not firebase_admin._apps:
+    cred = credentials.Certificate(firebase_key_path)
+    firebase_admin.initialize_app(cred)
 
 if not firebase_admin._apps:
     firebase_admin.initialize_app()
