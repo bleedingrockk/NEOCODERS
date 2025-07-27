@@ -8,7 +8,6 @@ from google.cloud.exceptions import NotFound, Forbidden
 import firebase_admin
 from firebase_admin import auth, exceptions as firebase_exceptions
 from flask import Flask, request
-
 app = Flask(__name__)
 import firebase_admin
 from firebase_admin import credentials
