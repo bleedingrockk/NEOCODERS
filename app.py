@@ -212,42 +212,33 @@ def ingestion_agent(request):
         logger.exception(f"Unhandled error in ingestion_agent: {e}")
         return {"error": "Internal Server Error"}, 500
 
+from firebase_admin import firestore
+
 def _verify_user_exists(user_id: str) -> bool:
     """
-    Verify if a user exists in Firebase Auth.
-    Returns True if user exists and is enabled, False otherwise.
+    Verify if a user exists in Firestore based on custom UUID (e.g., email prefix).
+    Returns True if the user document exists, False otherwise.
     """
     try:
-        logger.info(f"Verifying user exists: {user_id}")
-        user_record = auth.get_user(user_id)
-        is_enabled = not user_record.disabled
-        logger.info(f"User verification result - exists: True, enabled: {is_enabled}")
-        return is_enabled
+        logger.info(f"Verifying user exists in Firestore: {user_id}")
         
-    except firebase_exceptions.NotFoundError:
-        # This is the correct exception for user not found
-        logger.warning(f"User not found: {user_id}")
-        return False
+        # Initialize Firestore client
+        db = firestore.client()
         
-    except firebase_exceptions.PermissionDeniedError as e:
-        # Handle API not enabled or permission issues
-        logger.error(f"Firebase Auth permission denied - API may not be enabled: {e}")
-        # You can choose to return True here to bypass auth check during development
-        # or False to enforce strict authentication
-        return False
+        # Reference to the user's document inside 'users_data' collection
+        user_doc_ref = db.collection('users_data').document(user_id)
         
-    except firebase_exceptions.UnavailableError as e:
-        # Handle service unavailable
-        logger.error(f"Firebase Auth service unavailable: {e}")
-        return False
-        
-    except firebase_exceptions.InvalidArgumentError as e:
-        # Handle invalid user ID format
-        logger.error(f"Invalid user ID format: {user_id} - {e}")
-        return False
-        
+        # Check if document exists
+        user_doc = user_doc_ref.get()
+        if user_doc.exists:
+            logger.info(f"User {user_id} exists in Firestore.")
+            return True
+        else:
+            logger.warning(f"User {user_id} not found in Firestore.")
+            return False
+
     except Exception as e:
-        logger.error(f"Unexpected error during user verification: {e}")
+        logger.error(f"Error verifying user in Firestore: {e}")
         return False
 
 def _validate_file_size(image_bytes: bytes) -> bool:
