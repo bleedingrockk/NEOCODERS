@@ -14,7 +14,7 @@ import firebase_admin
 from firebase_admin import credentials
 
 # Path where secret will be mounted in Cloud Run
-firebase_key_path = "/secrets/firebase-key.json"
+firebase_key_path = "neocoders-e3645-firebase-adminsdk-fbsvc-30cdd05565.json"
 # Initialize Firebase Admin SDK
 if not firebase_admin._apps:
     cred = credentials.Certificate(firebase_key_path)
