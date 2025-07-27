@@ -34,7 +34,6 @@ def handle_request():
 @app.route("/health", methods=["GET"])
 def health_check():
     return {"status": "healthy", "service": "ingestion-service"}, 200
-
 def ingestion_agent(request):
     try:
         logger.info(f"Received request with content-type: {request.content_type}")
