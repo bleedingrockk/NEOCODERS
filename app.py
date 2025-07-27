@@ -13,32 +13,6 @@ from firebase_admin import auth, credentials, firestore, exceptions as firebase_
 from flask import Flask, request
 
 app = Flask(__name__)
-# Path where secret will be mounted in Cloud Run
-firebase_key_path = "neocoders-e3645-firebase-adminsdk-fbsvc-30cdd05565.json"
-
-# Initialize Firebase Admin SDK (FIXED - remove duplicate initialization)
-if not firebase_admin._apps:
-    try:
-        # For Cloud Run, use default service account (recommended)
-        if os.environ.get('GOOGLE_CLOUD_PROJECT'):
-            # Running in Cloud Run environment
-            firebase_admin.initialize_app()
-            logging.info("Firebase initialized with default Cloud Run service account")
-        elif os.path.exists(firebase_key_path):
-            # Local development with service account key
-            cred = credentials.Certificate(firebase_key_path)
-            firebase_admin.initialize_app(cred)
-            logging.info("Firebase initialized with service account key file")
-        else:
-            # Fallback to default credentials
-            firebase_admin.initialize_app()
-            logging.info("Firebase initialized with default credentials")
-    except Exception as e:
-        logging.error(f"Failed to initialize Firebase: {e}")
-        raise
-
-
-
 PROJECT_ID = os.environ.get('GCP_PROJECT', 'planar-cycle-467108-b4')
 BUCKET_NAME = f"{PROJECT_ID}.appspot.com"
 EXTRACTION_TOPIC = f"projects/{PROJECT_ID}/topics/receipts-for-extraction"
@@ -236,31 +210,11 @@ from firebase_admin import firestore
 
 def _verify_user_exists(user_id: str) -> bool:
     """
-    Verify if a user exists in Firestore based on custom UUID (e.g., email prefix).
-    Returns True if the user document exists, False otherwise.
+    Hardcoded user verification.
+    Returns True only if user_id matches 'sureshhackathon'.
     """
-    try:
-        logger.info(f"Verifying user exists in Firestore: {user_id}")
-        
-        # Initialize Firestore client
-        db = firestore.client()
-        
-        # Reference to the user's document inside 'users_data' collection
-        user_doc_ref = db.collection('users_data').document(user_id)
-        
-        # Check if document exists
-        user_doc = user_doc_ref.get()
-        if user_doc.exists:
-            logger.info(f"User {user_id} exists in Firestore.")
-            return True
-        else:
-            logger.warning(f"User {user_id} not found in Firestore.")
-            return False
-
-    except Exception as e:
-        logger.error(f"Error verifying user in Firestore: {e}")
-        return False
-
+    logger.info(f"Hardcoded user verification for: {user_id}")
+    return user_id == "sureshhackathon"
 def _validate_file_size(image_bytes: bytes) -> bool:
     size_mb = len(image_bytes) / (1024 * 1024)
     logger.info(f"File size validation: {size_mb:.2f}MB (max: {MAX_FILE_SIZE_MB}MB)")
