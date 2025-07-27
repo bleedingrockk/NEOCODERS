@@ -37,6 +37,13 @@ if not firebase_admin._apps:
         logging.error(f"Failed to initialize Firebase: {e}")
         raise
 
+
+
+PROJECT_ID = os.environ.get('GCP_PROJECT', 'planar-cycle-467108-b4')
+BUCKET_NAME = f"{PROJECT_ID}.appspot.com"
+EXTRACTION_TOPIC = f"projects/{PROJECT_ID}/topics/receipts-for-extraction"
+MAX_FILE_SIZE_MB = int(os.environ.get("MAX_FILE_SIZE_MB", "5"))
+ALLOWED_CONTENT_TYPES = ['image/jpeg', 'image/png', 'image/jpg', 'image/webp', 'application/pdf']
 # Initialize Google Cloud clients with proper error handling
 try:
     # For Cloud Run, these should use default service account
@@ -47,13 +54,6 @@ try:
 except Exception as e:
     logging.error(f"Failed to initialize Google Cloud clients: {e}")
     raise
-
-PROJECT_ID = os.environ.get('GCP_PROJECT', 'planar-cycle-467108-b4')
-BUCKET_NAME = f"{PROJECT_ID}.appspot.com"
-EXTRACTION_TOPIC = f"projects/{PROJECT_ID}/topics/receipts-for-extraction"
-MAX_FILE_SIZE_MB = int(os.environ.get("MAX_FILE_SIZE_MB", "5"))
-ALLOWED_CONTENT_TYPES = ['image/jpeg', 'image/png', 'image/jpg', 'image/webp', 'application/pdf']
-
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 @app.route("/", methods=["POST"])
