@@ -8,23 +8,45 @@ from google.cloud.exceptions import NotFound, Forbidden
 import firebase_admin
 from firebase_admin import auth, exceptions as firebase_exceptions
 from flask import Flask, request
-app = Flask(__name__)
 import firebase_admin
-from firebase_admin import credentials
+from firebase_admin import auth, credentials, firestore, exceptions as firebase_exceptions
+from flask import Flask, request
 
+app = Flask(__name__)
 # Path where secret will be mounted in Cloud Run
 firebase_key_path = "neocoders-e3645-firebase-adminsdk-fbsvc-30cdd05565.json"
-# Initialize Firebase Admin SDK
-if not firebase_admin._apps:
-    cred = credentials.Certificate(firebase_key_path)
-    firebase_admin.initialize_app(cred)
 
+# Initialize Firebase Admin SDK (FIXED - remove duplicate initialization)
 if not firebase_admin._apps:
-    firebase_admin.initialize_app()
+    try:
+        # For Cloud Run, use default service account (recommended)
+        if os.environ.get('GOOGLE_CLOUD_PROJECT'):
+            # Running in Cloud Run environment
+            firebase_admin.initialize_app()
+            logging.info("Firebase initialized with default Cloud Run service account")
+        elif os.path.exists(firebase_key_path):
+            # Local development with service account key
+            cred = credentials.Certificate(firebase_key_path)
+            firebase_admin.initialize_app(cred)
+            logging.info("Firebase initialized with service account key file")
+        else:
+            # Fallback to default credentials
+            firebase_admin.initialize_app()
+            logging.info("Firebase initialized with default credentials")
+    except Exception as e:
+        logging.error(f"Failed to initialize Firebase: {e}")
+        raise
 
-storage_client = storage.Client()
-vision_client = vision.ImageAnnotatorClient()
-publisher_client = pubsub_v1.PublisherClient()
+# Initialize Google Cloud clients with proper error handling
+try:
+    # For Cloud Run, these should use default service account
+    storage_client = storage.Client(project=PROJECT_ID)
+    vision_client = vision.ImageAnnotatorClient()
+    publisher_client = pubsub_v1.PublisherClient()
+    logging.info("Google Cloud clients initialized successfully")
+except Exception as e:
+    logging.error(f"Failed to initialize Google Cloud clients: {e}")
+    raise
 
 PROJECT_ID = os.environ.get('GCP_PROJECT', 'graphite-record-467002-g2')
 BUCKET_NAME = f"{PROJECT_ID}.appspot.com"
@@ -34,7 +56,6 @@ ALLOWED_CONTENT_TYPES = ['image/jpeg', 'image/png', 'image/jpg', 'image/webp', '
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
-
 @app.route("/", methods=["POST"])
 def handle_request():
     return ingestion_agent(request)
