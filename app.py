@@ -6,7 +6,6 @@ import logging
 import time
 from google.cloud import storage, vision, pubsub_v1
 from flask import Request, request, Flask
-
 app = Flask(__name__)
 
 storage_client = storage.Client()
